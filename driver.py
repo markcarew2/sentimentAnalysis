@@ -5,46 +5,62 @@ from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.model_selection import GridSearchCV
 from sklearn import metrics
 from sklearn.kernel_approximation import Nystroem, RBFSampler
+from sklearn.feature_selection import SelectKBest, chi2
+import time
 
-
+startTime = time.time()
 df = pd.read_csv("imdb_tr.csv", index_col = 0)
 testData = pd.read_csv("imdb_te.csv", index_col=0)
 
-unigramVectorizer = CountVectorizer(stop_words={"english"})
 
+#Train with unigram and reduced unigram, chose approx. 1% of features
+
+#Want to measure this time to add to the Reduced Unigram Time 
+#get approx time it would take reduced Unigram to do this without having to run twice
+unigramConstructTimeStart = time.time()
+unigramVectorizer = CountVectorizer()
 unigramVector = unigramVectorizer.fit_transform(df["text"])
-unigramVocab = unigramVectorizer.get_feature_names()
-
-
-#print(len(unibigramVectorizer.get_feature_names()))
-
 clfUnigram = SGDClassifier(loss="log", penalty="l1")
-clfUnigram.fit(unigramVector, y = df["polarity"])
+unigramConstructTime = time.time() - unigramConstructTimeStart
 
+clfUnigram.fit(unigramVector, y = df["polarity"])
 testVector = unigramVectorizer.transform(testData["text"])
 pred = clfUnigram.predict(testVector)
 
 acc = metrics.accuracy_score(testData["polarity"], pred)
 F1Score = metrics.f1_score(testData["polarity"], pred, average="macro")
 
-print(acc)
+print("NonReduced Unigram Accuracy/F1: ", acc)
 print(F1Score)
+unigramTime = time.time() - startTime
+print("Unigram Time = %s seconds" % unigramTime)
 print("*****")
 
-unibigramVectorizer = CountVectorizer(ngram_range=(1,2), stop_words={"english"})
+#Reduced Unigram
+selectBest = SelectKBest(chi2, k =1000)
+unigramVectorReduce = selectBest.fit_transform(unigramVector, df["polarity"])
 
+clfUnigram.fit(unigramVectorReduce, y = df["polarity"])
+testVectorReduce = selectBest.transform(testVector)
+pred = clfUnigram.predict(testVectorReduce)
+acc = metrics.accuracy_score(testData["polarity"], pred)
+F1Score = metrics.f1_score(testData["polarity"], pred, average="macro")
+
+print("Reduced Unigram Accuracy/F1: ", acc)
+print(F1Score)
+unigramReducedTime = time.time() - unigramTime - startTime + unigramConstructTime
+print("Unigram Reduced Time = %s seconds" % unigramReducedTime)
+print("*****")
+
+
+#Try again with Bigrams, reduce to about 1%
+bigramConstructTimeStart = time.time()
+unibigramVectorizer = CountVectorizer(ngram_range=(1,2))
 bigramVector = unibigramVectorizer.fit_transform(df["text"], y = df["polarity"])
 clfBigram = SGDClassifier(loss="log", penalty="l1")
-clfBigram.fit(bigramVector,y = df["polarity"])
+bigramConstructTime = time.time() - bigramConstructTimeStart
 
-"""
-sgdNystroem = SGDClassifier(loss="log", penalty="l1", learning_rate="constant", eta0=1)
-feature_map_nystroem = Nystroem(gamma=1,random_state=1, n_components=100)
-data_transformed = feature_map_nystroem.fit_transform(bigramVector)
-print(data_transformed.shape)
-sgdNystroem.fit(data_transformed, df["polarity"])
-print(sgdNystroem.score(data_transformed, df["polarity"]))
-"""
+clfBigram.fit(bigramVector,y = df["polarity"])
 
 testVector = unibigramVectorizer.transform(testData["text"])
 
@@ -52,20 +68,24 @@ pred = clfBigram.predict(testVector)
 acc = metrics.accuracy_score(testData["polarity"], pred)
 F1Score = metrics.f1_score(testData["polarity"], pred, average="macro")
 
-"""
-nystroemTest = feature_map_nystroem.transform(testVector)
-
-pred = sgdNystroem.predict(nystroemTest)
-acc1 = metrics.accuracy_score(testData["polarity"], pred)
-F1Score1 = metrics.f1_score(testData["polarity"], pred, average="macro")
-"""
-
-print("SGD Accuracy: " ,acc)
-print("SGD F1: ", F1Score)
-
-"""
+print("Bigram NonReduced Accuracy/F1: " ,acc)
+print(F1Score)
+bigramTime = time.time() - unigramTime - unigramReducedTime - startTime
+print("Bigram Time = %s seconds" % bigramTime)
 print("******")
-print("Nystroem Accuracy: " ,acc1)
-print("Nystroem F1: ", F1Score1)
-print("******")
-"""
+
+#Reduced Bigram
+selectBestBigram = SelectKBest(chi2, k =15138)
+bigramVectorReduce = selectBestBigram.fit_transform(bigramVector, df["polarity"])
+clfBigram.fit(bigramVectorReduce,y = df["polarity"])
+
+testVectorReduce = selectBestBigram.transform(testVector)
+
+pred = clfBigram.predict(testVectorReduce)
+acc = metrics.accuracy_score(testData["polarity"], pred)
+F1Score = metrics.f1_score(testData["polarity"], pred, average="macro")
+
+print("Bigram Reduced Accuracy/F1: " ,acc)
+print(F1Score)
+bigramReducedTime = time.time() - bigramTime - unigramTime - unigramReducedTime - startTime + bigramConstructTime
+print("Bigram Reduced Time = %s seconds" % bigramReducedTime)
