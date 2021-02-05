@@ -15,3 +15,5 @@ Also tweaked the parameters to minimize bias and variance. Increased maxIter to 
 Still only at 89% test accuracy (98% training accuracy). I believe the problem is now high variance but this stems from having too little data or improperly processed data. Increasing the regularization parameter further brings the train and test score closer together but lowers the test score. 
 
 Could probably improve the data used. Used chisquare to reduce vocabulary but there are likely better, domain specific ways of choosing which words to consider.
+
+Realized I tuned parameters on the test set so test accuracy may not be entirely accurate. Will generate cross validation sets and try again.
